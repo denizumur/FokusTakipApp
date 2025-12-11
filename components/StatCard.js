@@ -2,59 +2,69 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-// Bu bileşen artık her yerden çağrılabilir (Reusability)
-export default function StatCard({ label, value, subLabel, icon, color, theme, colors }) {
+const StatCard = ({ label, value, sub, icon, color, colors }) => {
   return (
     <View style={[
-        styles.card, 
-        { 
-            backgroundColor: colors.card, 
-            borderColor: colors.border, 
-            borderWidth: 1,
-            shadowColor: color 
-        }
+      styles.card, 
+      { 
+        backgroundColor: colors.card, 
+        borderColor: colors.border,
+        shadowColor: colors.text, // Temaya göre gölge rengi (karanlık modda hafif gri, aydınlıkta siyah)
+      }
     ]}>
-      {icon && (
-          <Ionicons 
-            name={icon} 
-            size={24} 
-            color={color} 
-            style={{ marginBottom: 5 }} 
-          />
-      )}
+      {/* İkon Kutusu (Opsiyonel: Hafif bir arka plan eklenebilir) */}
+      <View style={[styles.iconContainer, { backgroundColor: color + '20' }]}> 
+        {icon && <Ionicons name={icon} size={28} color={color} />}
+      </View>
+
       <Text style={[styles.cardValue, { color: color }]}>{value}</Text>
       <Text style={[styles.cardLabel, { color: colors.text }]}>{label}</Text>
       
-      {subLabel && (
-          <Text style={{ color: colors.text, opacity: 0.6, fontSize: 12, marginTop: 2 }}>
-            {subLabel}
-          </Text>
+      {sub && (
+        <Text style={[styles.subText, { color: colors.text }]}>{sub}</Text>
       )}
     </View>
   );
-}
+};
+
+export default StatCard;
 
 const styles = StyleSheet.create({
   card: {
-    width: '48%', // Grid yapısına uygun
-    padding: 20,
-    borderRadius: 16,
+    width: '48%', // Yan yana iki kart için
+    paddingVertical: 24, // Dikey boşluk artırıldı
+    paddingHorizontal: 16,
+    borderRadius: 24, // Daha yumuşak köşeler
+    borderWidth: 1, // İnce çerçeve
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 2,
+    // --- Modern Gölge Efektleri ---
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08, // Çok hafif gölge
+    shadowRadius: 16,
+    elevation: 4, // Android için
     marginBottom: 10,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+  },
+  iconContainer: {
+    padding: 10,
+    borderRadius: 16,
+    marginBottom: 12, // İkon ile metin arası boşluk
   },
   cardValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 28, // Rakam biraz büyütüldü
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
   cardLabel: {
-    fontSize: 13,
-    marginTop: 5,
+    fontSize: 14,
     fontWeight: '600',
-    textAlign: 'center'
+    opacity: 0.8,
   },
+  subText: {
+    opacity: 0.5,
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '500',
+  }
 });
