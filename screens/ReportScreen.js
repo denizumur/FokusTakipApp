@@ -200,14 +200,13 @@ export default function ReportScreen() {
         {activeTab === 'Summary' && (
             <View style={styles.gridContainer}>
                 
-                {/* --- BÜYÜK KART TASARIMI GÜNCELLENDİ --- */}
                 <View style={[
                     styles.card, 
                     styles.bigCard,
                     { 
                         backgroundColor: colors.card, 
                         borderColor: colors.border,
-                        shadowColor: colors.text // Dinamik gölge rengi
+                        shadowColor: colors.text
                     }
                 ]}>
                     <Text style={[styles.cardLabel, { color: colors.text }]}>
@@ -218,7 +217,6 @@ export default function ReportScreen() {
                         {formatMinutes(stats.total)}
                     </Text>
 
-                    {/* Bugün Rozeti (Badge) */}
                     <View style={[styles.todayBadge, { backgroundColor: colors.primary + '15' }]}>
                         <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 13 }}>
                              Bugün: {formatMinutes(stats.today)}
@@ -226,7 +224,6 @@ export default function ReportScreen() {
                     </View>
                 </View>
 
-                {/* Küçük Kartlar */}
                 <StatCard 
                     label="Dağınıklık" 
                     value={stats.totalDistractions} 
@@ -317,21 +314,97 @@ export default function ReportScreen() {
             </View>
         )}
 
-        {/* TARİHÇE SEKMESİ */}
+        {/* TARİHÇE SEKMESİ (GÜNCELLENDİ) */}
         {activeTab === 'History' && (
             <View>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Son 7 Gün ({selectedCategory})</Text>
+                
+                {/* Grafik */}
                 <BarChart
                     data={chartData}
                     width={SCREEN_WIDTH - 30}
-                    height={300}
+                    height={220}
                     yAxisLabel=""
                     yAxisSuffix=" dk"
                     chartConfig={chartConfig}
-                    style={{ borderRadius: 16, marginTop: 10 }}
+                    style={{ borderRadius: 16, marginTop: 10, marginBottom: 20 }}
                     showValuesOnTopOfBars={true}
                     fromZero
                 />
+
+                {/* --- DETAYLI SEANS LİSTESİ --- */}
+                <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 16, marginTop: 10 }]}>
+                    Son Seanslar
+                </Text>
+
+                <View style={[styles.historyListContainer, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
+                    {/* Başlık Satırı */}
+                    <View style={[styles.historyHeader, { borderBottomColor: colors.border }]}>
+                        <Text style={[styles.historyHeaderText, { flex: 2, color: colors.text }]}>Zaman Aralığı</Text>
+                        <Text style={[styles.historyHeaderText, { flex: 1, color: colors.text, textAlign: 'center' }]}>Süre</Text>
+                        <Text style={[styles.historyHeaderText, { flex: 1, color: colors.text, textAlign: 'right' }]}>Mola</Text>
+                    </View>
+
+                    {/* Liste - Son 10 Seans */}
+                    {allSessions
+                        .filter(s => selectedCategory === 'Tümü' || s.category === selectedCategory)
+                        .sort((a, b) => new Date(b.date) - new Date(a.date)) // Yeniden eskiye
+                        .slice(0, 10) 
+                        .map((item, index) => {
+                            // Zaman Hesaplamaları
+                            const startDate = new Date(item.date);
+                            const startStr = startDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+                            
+                            // Bitiş saati tahmini (Başlangıç + Süre)
+                            const endDate = new Date(startDate.getTime() + item.duration * 1000);
+                            const endStr = endDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
+                            return (
+                                <View key={index} style={[styles.historyItem, { borderBottomColor: colors.border }]}>
+                                    
+                                    {/* Sol: Kategori ve Zaman */}
+                                    <View style={{ flex: 2 }}>
+                                        <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '700', marginBottom: 2 }}>
+                                            {item.category}
+                                        </Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                            <Ionicons name="time-outline" size={14} color={colors.text} style={{ opacity: 0.5, marginRight: 4 }} />
+                                            <Text style={{ fontSize: 13, color: colors.text, fontWeight: '500' }}>
+                                                {startStr} - {endStr}
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    {/* Orta: Süre Rozeti */}
+                                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                                        <View style={{ backgroundColor: theme === 'dark' ? '#333' : '#f3f4f6', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                                            <Text style={{ fontSize: 12, fontWeight: 'bold', color: colors.text }}>
+                                                {Math.floor(item.duration / 60)} dk
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    {/* Sağ: Mola veya Tik */}
+                                    <View style={{ flex: 1, alignItems: 'flex-end', justifyContent: 'center' }}>
+                                        {item.pauseCount > 0 ? (
+                                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                <Text style={{ fontSize: 12, color: '#f59e0b', fontWeight: '600', marginRight: 2 }}>
+                                                    {item.pauseCount}
+                                                </Text>
+                                                <Ionicons name="pause-circle" size={16} color="#f59e0b" />
+                                            </View>
+                                        ) : (
+                                            <Ionicons name="checkmark-circle" size={18} color="#34d399" style={{ opacity: 0.8 }} />
+                                        )}
+                                    </View>
+
+                                </View>
+                            );
+                        })}
+                    {allSessions.length === 0 && (
+                        <Text style={{ padding: 20, textAlign: 'center', color: colors.text, opacity: 0.5 }}>Kayıt bulunamadı.</Text>
+                    )}
+                </View>
             </View>
         )}
       </ScrollView>
@@ -351,26 +424,23 @@ const styles = StyleSheet.create({
   filterText: { fontSize: 13, fontWeight: '500' },
   contentContainer: { padding: 15 },
   
-  // --- YENİ KART STİLLERİ ---
+  // --- KART STİLLERİ ---
   gridContainer: { 
       flexDirection: 'row', 
       flexWrap: 'wrap', 
       justifyContent: 'space-between', 
       gap: 12 
   },
-  // Ortak kart temeli (Hem büyük hem küçük kartlar bu yapıyı kullanır)
   card: { 
       borderRadius: 24, 
       alignItems: 'center', 
       justifyContent: 'center', 
       borderWidth: 1,
-      // Modern Gölge
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.08,
       shadowRadius: 16,
       elevation: 4,
   },
-  // Büyük karta özel stiller
   bigCard: {
       width: '100%',
       paddingVertical: 32,
@@ -385,7 +455,7 @@ const styles = StyleSheet.create({
   cardLabel: { 
       fontSize: 13, 
       fontWeight: '600',
-      textTransform: 'uppercase', // Başlıklar büyük harf
+      textTransform: 'uppercase', 
       letterSpacing: 0.5,
       opacity: 0.7
   },
@@ -406,4 +476,30 @@ const styles = StyleSheet.create({
   catDuration: { fontSize: 16, fontWeight: 'bold' },
   catPercent: { fontSize: 12, color: '#94a3b8' },
   noDataText: { textAlign: 'center', color: '#999', margin: 20 },
+
+  // --- YENİ GEÇMİŞ LİSTESİ STİLLERİ ---
+  historyListContainer: {
+    borderRadius: 16,
+    overflow: 'hidden', 
+    marginTop: 5,
+    marginBottom: 20,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    padding: 12,
+    borderBottomWidth: 1,
+    opacity: 0.8,
+  },
+  historyHeaderText: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    opacity: 0.6,
+  },
+  historyItem: {
+    flexDirection: 'row',
+    padding: 15,
+    borderBottomWidth: 1,
+    alignItems: 'center',
+  },
 });
