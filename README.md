@@ -1,50 +1,145 @@
-# Welcome to your Expo app 👋
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+-----
 
-## Get started
+# Mobil Verimlilik ve Odaklanma Uygulaması
 
-1. Install dependencies
+Bu proje, mobil uygulama geliştirme süreçlerini, bileşen tabanlı mimariyi ve yerel veri yönetimini pratik etmek amacıyla geliştirilmiş; **React Native** tabanlı bir odaklanma ve zaman yönetimi uygulamasıdır.
 
-   ```bash
-   npm install
-   ```
+Uygulama, **Pomodoro Tekniği** prensiplerini temel alarak, kullanıcıların çalışma sürelerini takip etmelerini, performans verilerini grafiksel olarak analiz etmelerini ve sürdürülebilir çalışma alışkanlıkları kazanmalarını hedefler.
 
-2. Start the app
+## 📑 İçindekiler
 
-   ```bash
-   npx expo start
-   ```
+  - [Proje Amacı]
+  - [Kullanılan Teknolojiler]
+  - [Sistem Mimarisi ve Dosya Yapısı]
+  - [Uygulama Modülleri]
+  - [Veri Modeli]
+  - [Kurulum ve Çalıştırma]
 
-In the output, you'll find options to open the app in a
+-----
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## 🎯 Proje Amacı
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+Günümüz dijital dünyasında artan dikkat dağınıklığı problemine çözüm üretmek amacıyla geliştirilen **Focus Flow**, aşağıdaki teknik kazanımları sağlamayı amaçlamaktadır:
 
-## Get a fresh project
+  * **React Native** ekosistemine ve **Expo** altyapısına hakimiyet.
+  * **Context API** ile global durum (state) yönetimi.
+  * **AsyncStorage** kullanarak kalıcı veri depolama (Data Persistence).
+  * **SVG** ve **Canvas** teknolojileri ile özel UI bileşenlerinin (Custom UI) geliştirilmesi.
+  * **AppState** API ile uygulama yaşam döngüsü (Lifecycle) yönetimi.
 
-When you're ready, run:
+-----
 
-```bash
-npm run reset-project
+## 🛠 Kullanılan Teknolojiler
+
+Proje geliştirme sürecinde performans ve ölçeklenebilirlik esas alınmıştır.
+
+| Kategori | Teknoloji / Kütüphane | Kullanım Alanı |
+| **Core** | React Native (Expo SDK 50) | Mobil Uygulama Çatısı |
+| **Language** | JavaScript (ES6+) | Uygulama Mantığı |
+| **State Management** | React Context API | Tema ve Veri Akışı Yönetimi |
+| **Storage** | Async Storage | Yerel Veritabanı (JSON Tabanlı) |
+| **Visualization** | React Native SVG | Dairesel İlerleme Çubuğu (Timer) |
+| **Analytics** | React Native Chart Kit | Veri Görselleştirme ve Grafikler |
+| **UX** | Haptic Feedback | Dokunsal Geri Bildirim |
+
+-----
+
+## 🏗 Sistem Mimarisi ve Dosya Yapısı
+
+Proje, **Modüler Mimarisi (Modular Architecture)** prensiplerine göre yapılandırılmıştır.
+
+```text
+focus-flow/
+├── src/
+│   ├── components/      # Yeniden kullanılabilir UI bileşenleri (StatCard, CustomModal vb.)
+│   ├── context/         # Global state yönetimi (FocusContext)
+│   ├── screens/         # Uygulama ekranları (Focus, Report, Settings)
+│   ├── utils/           # Yardımcı fonksiyonlar ve Depolama (Storage) işlemleri
+│   └── navigation/      # Navigasyon yapılandırması
+├── App.js               # Kök bileşen
+└── package.json         # Bağımlılıklar
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+-----
 
-## Learn more
+## 📱 Uygulama Modülleri
 
-To learn more about developing your project with Expo, look at the following resources:
+### 1\. Odaklanma Modülü (Focus Screen)
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Kullanıcının çalışma oturumlarını yönettiği ana modüldür.
 
-## Join the community
+  * **Dairesel Sayaç:** `react-native-svg` kullanılarak geliştirilen, matematiksel hesaplamalarla (Trigonometri) yönetilen dinamik ilerleme çubuğu.
+  * **Arka Plan Takibi:** `AppState` API entegrasyonu ile uygulamanın arka plana atılması durumunda "Dikkat Dağınıklığı" (Distraction) tespiti yapılır.
+  * **Kategori Seçimi:** Native elementler yerine, özelleştirilmiş **Modal** yapısı ile kategori filtreleme imkanı sunar.
 
-Join our community of developers creating universal apps.
+### 2\. Raporlama Modülü (Report Screen)
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Toplanan verilerin işlenerek anlamlı grafiklere dönüştürüldüğü analiz ekranıdır.
+
+  * **Optimizasyon:** Büyük veri setlerinin listelenmesinde performans kaybını önlemek için `ScrollView` yerine **`FlatList`** kullanılmıştır.
+  * **Görselleştirme:** Isı Haritası (Heatmap), Pasta Grafik (Pie Chart) ve Çubuk Grafik (Bar Chart) bileşenleri entegre edilmiştir.
+  * **Veri Filtreleme:** Kullanıcı verileri zamana ve kategoriye göre dinamik olarak filtreleyebilir.
+
+### 3\. Ayarlar Modülü (Settings Screen)
+
+  * **Tema Yönetimi:** Uygulama genelinde geçerli olan Karanlık/Aydınlık mod desteği.
+  * **Veri Yönetimi:** Kullanıcı verilerinin güvenli bir şekilde sıfırlanması işlemleri.
+
+-----
+
+## 💾 Veri Modeli
+
+Uygulama, verileri ilişkisel olmayan bir yapıda, JSON formatında yerel cihaz hafızasında saklar. Örnek veri şeması aşağıdadır:
+
+```json
+[
+  {
+    "id": 1702829102391,
+    "date": "2025-12-15T14:30:00.000Z",
+    "duration": 1500,
+    "category": "Kodlama",
+    "pauseCount": 2,
+    "distractions": 1
+  }
+]
+```
+
+-----
+
+## 🔄 İş Akış Şeması
+
+Kullanıcı etkileşiminin veri tabanına yansıması aşağıdaki akış diyagramında özetlenmiştir:
+
+1.  **Giriş:** Kullanıcı süre ve kategori seçimi yapar.
+2.  **İşlem:** Sayaç başlatılır. Arka plan aktiviteleri ve duraklatmalar dinlenir.
+3.  **Sonuç:** Süre tamamlandığında oturum verileri (süre, mola, dikkat dağınıklığı) derlenir.
+4.  **Kayıt:** Veri `AsyncStorage`'a asenkron olarak yazılır.
+5.  **Analiz:** Rapor ekranındaki grafikler yeni veri setiyle güncellenir.
+
+-----
+
+## 🚀 Kurulum ve Çalıştırma
+
+Projeyi yerel ortamınızda çalıştırmak için aşağıdaki adımları izleyebilirsiniz.
+
+1.  **Depoyu Klonlayın:**
+
+    ```bash
+    git clone https://github.com/denizumur/FokusTakipApp
+    cd FocusTakipApp
+    ```
+
+2.  **Bağımlılıkları Yükleyin:**
+
+    ```bash
+    npm install
+    ```
+
+3.  **Uygulamayı Başlatın:**
+
+    ```bash
+    npx expo start -c
+    ```
+
+-----
