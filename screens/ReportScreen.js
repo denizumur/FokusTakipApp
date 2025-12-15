@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
-import { Dimensions, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, FlatList, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BarChart, ContributionGraph, PieChart } from 'react-native-chart-kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StatCard from '../components/StatCard'; // Harici bileşen
@@ -10,6 +10,14 @@ import { getSessions } from '../utils/storage';
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const COLORS = ['#F87171', '#FBBF24', '#34D399', '#60A5FA', '#A78BFA', '#F472B6'];
+
+// Tab Menüsü Verisi (FlatList için)
+const TABS = [
+  { id: 'Summary', title: 'Özet', icon: 'grid-outline' },
+  { id: 'Heatmap', title: 'Alışkanlık', icon: 'calendar-outline' },
+  { id: 'Categories', title: 'Kategoriler', icon: 'pie-chart-outline' },
+  { id: 'History', title: 'Tarihçe', icon: 'bar-chart-outline' },
+];
 
 export default function ReportScreen() {
   const insets = useSafeAreaInsets();
@@ -32,18 +40,33 @@ export default function ReportScreen() {
   // --- VERİ ÇEKME VE İŞLEME ---
   const fetchSessions = async () => {
       setLoading(true);
-      const sessions = await getSessions();
-      setAllSessions(sessions);
-      const cats = new Set(sessions.map(s => s.category));
-      setUniqueCategories(['Tümü', ...Array.from(cats)]);
-      processData(sessions, selectedCategory);
-      setLoading(false);
+      try {
+        const sessions = await getSessions();
+        // GÜVENLİK ÖNLEMİ: Eğer sessions null gelirse boş dizi ata
+        const safeSessions = sessions || []; 
+        
+        setAllSessions(safeSessions);
+        
+        const cats = new Set(safeSessions.map(s => s.category));
+        setUniqueCategories(['Tümü', ...Array.from(cats)]);
+        
+        processData(safeSessions, selectedCategory);
+      } catch (error) {
+        console.error("Veri çekme hatası:", error);
+        setAllSessions([]); // Hata olursa boş dizi ata
+      } finally {
+        setLoading(false);
+      }
   };
 
   const processData = (sessions, categoryFilter) => {
+    // GÜVENLİK ÖNLEMİ: sessions undefined ise işlem yapma
+    if (!sessions) return; 
+
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
 
+    // .filter çağrısı artık güvenli
     const filteredSessions = categoryFilter === 'Tümü' ? sessions : sessions.filter(s => s.category === categoryFilter);
 
     let totalSec = 0, todaySec = 0, totalDis = 0, totalPau = 0;
@@ -129,38 +152,42 @@ export default function ReportScreen() {
   };
 
   // --- BİLEŞENLER ---
-  const TabButton = ({ title, activeId, icon }) => (
+  const renderTabItem = ({ item }) => (
     <TouchableOpacity 
         style={[
             styles.tabButton, 
-            { backgroundColor: activeTab === activeId ? colors.primary : colors.card, borderColor: colors.border, borderWidth: 1 }
+            { 
+              backgroundColor: activeTab === item.id ? colors.primary : colors.card, 
+              borderColor: colors.border, 
+              borderWidth: 1 
+            }
         ]}
-        onPress={() => setActiveTab(activeId)}
+        onPress={() => setActiveTab(item.id)}
     >
-        <Ionicons name={icon} size={18} color={activeTab === activeId ? (theme === 'dark' ? '#000' : '#fff') : colors.text} />
+        <Ionicons name={item.icon} size={18} color={activeTab === item.id ? (theme === 'dark' ? '#000' : '#fff') : colors.text} />
         <Text style={[
             styles.tabText, 
-            { color: activeTab === activeId ? (theme === 'dark' ? '#000' : '#fff') : colors.text }
-        ]}>{title}</Text>
+            { color: activeTab === item.id ? (theme === 'dark' ? '#000' : '#fff') : colors.text }
+        ]}>{item.title}</Text>
     </TouchableOpacity>
   );
 
-  const FilterChip = ({ title }) => (
+  const renderFilterItem = ({ item }) => (
       <TouchableOpacity 
         style={[
             styles.filterChip, 
             { 
-                borderColor: selectedCategory === title ? colors.primary : colors.border,
-                backgroundColor: selectedCategory === title ? (theme === 'dark' ? '#1a1a1a' : '#dbeafe') : colors.card 
+                borderColor: selectedCategory === item ? colors.primary : colors.border,
+                backgroundColor: selectedCategory === item ? (theme === 'dark' ? '#1a1a1a' : '#dbeafe') : colors.card 
             }
         ]}
-        onPress={() => handleCategoryChange(title)}
+        onPress={() => handleCategoryChange(item)}
       >
           <Text style={[
               styles.filterText, 
-              { color: selectedCategory === title ? colors.primary : colors.text }
+              { color: selectedCategory === item ? colors.primary : colors.text }
           ]}>
-            {title}
+            {item}
           </Text>
       </TouchableOpacity>
   );
@@ -172,241 +199,220 @@ export default function ReportScreen() {
           <Text style={[styles.headerTitle, { color: colors.text }]}>📊 Analizler</Text>
       </View>
 
-      <View style={[styles.tabsContainer, { backgroundColor: colors.bg }]}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{paddingHorizontal: 15}}>
-            <TabButton title="Özet" activeId="Summary" icon="grid-outline" />
-            <TabButton title="Alışkanlık" activeId="Heatmap" icon="calendar-outline" />
-            <TabButton title="Kategoriler" activeId="Categories" icon="pie-chart-outline" />
-            <TabButton title="Tarihçe" activeId="History" icon="bar-chart-outline" />
-        </ScrollView>
-      </View>
-
-      {activeTab !== 'Categories' && (
-        <View style={[styles.filterContainer, { backgroundColor: colors.bg, borderBottomColor: colors.border }]}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{paddingHorizontal: 15}}>
-                {uniqueCategories.map((cat, index) => (
-                    <FilterChip key={index} title={cat} />
-                ))}
-            </ScrollView>
-        </View>
-      )}
-
       <ScrollView 
         contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 20 }]} 
         refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchSessions} tintColor={colors.primary} />}
+        stickyHeaderIndices={[0, 1]}
       >
         
-        {/* ÖZET SEKMESİ */}
-        {activeTab === 'Summary' && (
-            <View style={styles.gridContainer}>
-                
-                <View style={[
-                    styles.card, 
-                    styles.bigCard,
-                    { 
-                        backgroundColor: colors.card, 
-                        borderColor: colors.border,
-                        shadowColor: colors.text
-                    }
-                ]}>
-                    <Text style={[styles.cardLabel, { color: colors.text }]}>
-                        {selectedCategory === 'Tümü' ? 'Toplam Odaklanma' : `${selectedCategory} Süresi`}
-                    </Text>
-                    
-                    <Text style={[styles.bigCardValue, { color: colors.primary }]}>
-                        {formatMinutes(stats.total)}
-                    </Text>
+        {/* TAB MENÜSÜ */}
+        <View style={{ backgroundColor: colors.bg, paddingBottom: 10 }}>
+            <FlatList
+                data={TABS}
+                renderItem={renderTabItem}
+                keyExtractor={item => item.id}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: 20 }}
+            />
+        </View>
 
-                    <View style={[styles.todayBadge, { backgroundColor: colors.primary + '15' }]}>
-                        <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 13 }}>
-                             Bugün: {formatMinutes(stats.today)}
-                        </Text>
-                    </View>
-                </View>
-
-                <StatCard 
-                    label="Dağınıklık" 
-                    value={stats.totalDistractions} 
-                    icon="alert-circle" 
-                    color="#ef4444" 
-                    colors={colors}
-                />
-                <StatCard 
-                    label="Duraklatma" 
-                    value={stats.totalPauses} 
-                    icon="pause-circle" 
-                    color="#f59e0b" 
-                    colors={colors}
+        {/* KATEGORİ FİLTRESİ */}
+        {activeTab !== 'Categories' && (
+            <View style={{ backgroundColor: colors.bg, paddingBottom: 10 }}>
+                <FlatList
+                    data={uniqueCategories}
+                    renderItem={renderFilterItem}
+                    keyExtractor={(item, index) => index.toString()}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingHorizontal: 20 }}
                 />
             </View>
         )}
 
-        {/* HEATMAP SEKMESİ */}
-        {activeTab === 'Heatmap' && (
-            <View>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                    {selectedCategory === 'Tümü' ? 'Genel Alışkanlık' : `${selectedCategory} Alışkanlığı`}
-                </Text>
-                <View style={[styles.selectedDateCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <Text style={[styles.selectedDateTitle, { color: colors.primary }]}>
-                        {selectedDateInfo ? new Date(selectedDateInfo.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Tarih Seçin'}
-                    </Text>
-                    <Text style={[styles.selectedDateValue, { color: colors.text }]}>
-                        {selectedDateInfo ? `${selectedDateInfo.count} Seans` : '-'}
-                    </Text>
-                </View>
-                <View style={{alignItems: 'center', marginTop: 10}}>
-                    <ContributionGraph
-                        values={heatmapData}
-                        endDate={new Date()}
-                        numDays={95}
-                        width={SCREEN_WIDTH - 30}
-                        height={220}
-                        chartConfig={{
-                            ...chartConfig,
-                            color: (opacity = 1) => theme === 'dark' ? `rgba(52, 211, 153, ${opacity})` : `rgba(22, 163, 74, ${opacity})`,
-                            backgroundGradientFrom: colors.card,
-                            backgroundGradientTo: colors.card,
-                        }}
-                        onDayPress={(day) => setSelectedDateInfo(day)}
-                        gutterSize={2}
+        {/* İÇERİK ALANI */}
+        <View style={{ paddingHorizontal: 20 }}>
+            
+            {/* ÖZET SEKMESİ */}
+            {activeTab === 'Summary' && (
+                <View style={styles.gridContainer}>
+                    <View style={[
+                        styles.card, 
+                        styles.bigCard,
+                        { 
+                            backgroundColor: colors.card, 
+                            borderColor: colors.border,
+                            shadowColor: colors.text
+                        }
+                    ]}>
+                        <Text style={[styles.cardLabel, { color: colors.text }]}>
+                            {selectedCategory === 'Tümü' ? 'Toplam Odaklanma' : `${selectedCategory} Süresi`}
+                        </Text>
+                        <Text style={[styles.bigCardValue, { color: colors.primary }]}>
+                            {formatMinutes(stats.total)}
+                        </Text>
+                        <View style={[styles.todayBadge, { backgroundColor: colors.primary + '15' }]}>
+                            <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 13 }}>
+                                 Bugün: {formatMinutes(stats.today)}
+                            </Text>
+                        </View>
+                    </View>
+                    <StatCard 
+                        label="Dağınıklık" value={stats.totalDistractions} 
+                        icon="alert-circle" color="#ef4444" colors={colors}
+                    />
+                    <StatCard 
+                        label="Duraklatma" value={stats.totalPauses} 
+                        icon="pause-circle" color="#f59e0b" colors={colors}
                     />
                 </View>
-            </View>
-        )}
+            )}
 
-        {/* KATEGORİLER SEKMESİ */}
-        {activeTab === 'Categories' && (
-            <View>
-                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Tüm Zamanların Dağılımı</Text>
-                 {pieData.length > 0 ? (
-                    <>
-                        <PieChart
-                            data={pieData}
-                            width={SCREEN_WIDTH - 30}
-                            height={220}
-                            chartConfig={chartConfig}
-                            accessor={"population"}
-                            backgroundColor={"transparent"}
-                            paddingLeft={"15"}
-                            center={[10, 0]}
-                            hasLegend={false}
-                            absolute
-                        />
-                        <View style={[styles.categoryList, { backgroundColor: colors.card }]}>
-                            {categoryList.map((cat, index) => (
-                                <View key={index} style={[styles.categoryItem, { borderBottomColor: colors.border }]}>
-                                    <View style={{flexDirection:'row', alignItems:'center'}}>
-                                        <View style={{width:12, height:12, borderRadius:6, backgroundColor: cat.color, marginRight:10}} />
-                                        <Text style={[styles.catName, { color: colors.text }]}>{cat.name}</Text>
-                                    </View>
-                                    <View style={{alignItems:'flex-end'}}>
-                                        <Text style={[styles.catDuration, { color: colors.text }]}>{formatMinutes(cat.duration)}</Text>
-                                        <Text style={styles.catPercent}>%{cat.percentage}</Text>
-                                    </View>
-                                </View>
-                            ))}
-                        </View>
-                    </>
-                 ) : (
-                    <Text style={styles.noDataText}>Henüz veri yok.</Text>
-                 )}
-            </View>
-        )}
-
-        {/* TARİHÇE SEKMESİ (GÜNCELLENDİ) */}
-        {activeTab === 'History' && (
-            <View>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Son 7 Gün ({selectedCategory})</Text>
-                
-                {/* Grafik */}
-                <BarChart
-                    data={chartData}
-                    width={SCREEN_WIDTH - 30}
-                    height={220}
-                    yAxisLabel=""
-                    yAxisSuffix=" dk"
-                    chartConfig={chartConfig}
-                    style={{ borderRadius: 16, marginTop: 10, marginBottom: 20 }}
-                    showValuesOnTopOfBars={true}
-                    fromZero
-                />
-
-                {/* --- DETAYLI SEANS LİSTESİ --- */}
-                <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 16, marginTop: 10 }]}>
-                    Son Seanslar
-                </Text>
-
-                <View style={[styles.historyListContainer, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
-                    {/* Başlık Satırı */}
-                    <View style={[styles.historyHeader, { borderBottomColor: colors.border }]}>
-                        <Text style={[styles.historyHeaderText, { flex: 2, color: colors.text }]}>Zaman Aralığı</Text>
-                        <Text style={[styles.historyHeaderText, { flex: 1, color: colors.text, textAlign: 'center' }]}>Süre</Text>
-                        <Text style={[styles.historyHeaderText, { flex: 1, color: colors.text, textAlign: 'right' }]}>Mola</Text>
+            {/* HEATMAP SEKMESİ */}
+            {activeTab === 'Heatmap' && (
+                <View>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                        {selectedCategory === 'Tümü' ? 'Genel Alışkanlık' : `${selectedCategory} Alışkanlığı`}
+                    </Text>
+                    <View style={[styles.selectedDateCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                        <Text style={[styles.selectedDateTitle, { color: colors.primary }]}>
+                            {selectedDateInfo ? new Date(selectedDateInfo.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Tarih Seçin'}
+                        </Text>
+                        <Text style={[styles.selectedDateValue, { color: colors.text }]}>
+                            {selectedDateInfo ? `${selectedDateInfo.count} Seans` : '-'}
+                        </Text>
                     </View>
-
-                    {/* Liste - Son 10 Seans */}
-                    {allSessions
-                        .filter(s => selectedCategory === 'Tümü' || s.category === selectedCategory)
-                        .sort((a, b) => new Date(b.date) - new Date(a.date)) // Yeniden eskiye
-                        .slice(0, 10) 
-                        .map((item, index) => {
-                            // Zaman Hesaplamaları
-                            const startDate = new Date(item.date);
-                            const startStr = startDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-                            
-                            // Bitiş saati tahmini (Başlangıç + Süre)
-                            const endDate = new Date(startDate.getTime() + item.duration * 1000);
-                            const endStr = endDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-
-                            return (
-                                <View key={index} style={[styles.historyItem, { borderBottomColor: colors.border }]}>
-                                    
-                                    {/* Sol: Kategori ve Zaman */}
-                                    <View style={{ flex: 2 }}>
-                                        <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '700', marginBottom: 2 }}>
-                                            {item.category}
-                                        </Text>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                            <Ionicons name="time-outline" size={14} color={colors.text} style={{ opacity: 0.5, marginRight: 4 }} />
-                                            <Text style={{ fontSize: 13, color: colors.text, fontWeight: '500' }}>
-                                                {startStr} - {endStr}
-                                            </Text>
-                                        </View>
-                                    </View>
-
-                                    {/* Orta: Süre Rozeti */}
-                                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                                        <View style={{ backgroundColor: theme === 'dark' ? '#333' : '#f3f4f6', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
-                                            <Text style={{ fontSize: 12, fontWeight: 'bold', color: colors.text }}>
-                                                {Math.floor(item.duration / 60)} dk
-                                            </Text>
-                                        </View>
-                                    </View>
-
-                                    {/* Sağ: Mola veya Tik */}
-                                    <View style={{ flex: 1, alignItems: 'flex-end', justifyContent: 'center' }}>
-                                        {item.pauseCount > 0 ? (
-                                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                                <Text style={{ fontSize: 12, color: '#f59e0b', fontWeight: '600', marginRight: 2 }}>
-                                                    {item.pauseCount}
-                                                </Text>
-                                                <Ionicons name="pause-circle" size={16} color="#f59e0b" />
-                                            </View>
-                                        ) : (
-                                            <Ionicons name="checkmark-circle" size={18} color="#34d399" style={{ opacity: 0.8 }} />
-                                        )}
-                                    </View>
-
-                                </View>
-                            );
-                        })}
-                    {allSessions.length === 0 && (
-                        <Text style={{ padding: 20, textAlign: 'center', color: colors.text, opacity: 0.5 }}>Kayıt bulunamadı.</Text>
-                    )}
+                    <View style={{alignItems: 'center', marginTop: 10}}>
+                        <ContributionGraph
+                            values={heatmapData}
+                            endDate={new Date()}
+                            numDays={95}
+                            width={SCREEN_WIDTH - 40}
+                            height={220}
+                            chartConfig={{
+                                ...chartConfig,
+                                color: (opacity = 1) => theme === 'dark' ? `rgba(52, 211, 153, ${opacity})` : `rgba(22, 163, 74, ${opacity})`,
+                                backgroundGradientFrom: colors.card,
+                                backgroundGradientTo: colors.card,
+                            }}
+                            onDayPress={(day) => setSelectedDateInfo(day)}
+                            gutterSize={2}
+                        />
+                    </View>
                 </View>
-            </View>
-        )}
+            )}
+
+            {/* KATEGORİLER SEKMESİ */}
+            {activeTab === 'Categories' && (
+                <View>
+                     <Text style={[styles.sectionTitle, { color: colors.text }]}>Tüm Zamanların Dağılımı</Text>
+                     {pieData.length > 0 ? (
+                        <>
+                            <PieChart
+                                data={pieData}
+                                width={SCREEN_WIDTH - 40}
+                                height={220}
+                                chartConfig={chartConfig}
+                                accessor={"population"}
+                                backgroundColor={"transparent"}
+                                paddingLeft={"15"}
+                                center={[10, 0]}
+                                hasLegend={false}
+                                absolute
+                            />
+                            <View style={[styles.categoryList, { backgroundColor: colors.card }]}>
+                                {categoryList.map((cat, index) => (
+                                    <View key={index} style={[styles.categoryItem, { borderBottomColor: colors.border }]}>
+                                        <View style={{flexDirection:'row', alignItems:'center'}}>
+                                            <View style={{width:12, height:12, borderRadius:6, backgroundColor: cat.color, marginRight:10}} />
+                                            <Text style={[styles.catName, { color: colors.text }]}>{cat.name}</Text>
+                                        </View>
+                                        <View style={{alignItems:'flex-end'}}>
+                                            <Text style={[styles.catDuration, { color: colors.text }]}>{formatMinutes(cat.duration)}</Text>
+                                            <Text style={styles.catPercent}>%{cat.percentage}</Text>
+                                        </View>
+                                    </View>
+                                ))}
+                            </View>
+                        </>
+                     ) : (
+                        <Text style={styles.noDataText}>Henüz veri yok.</Text>
+                     )}
+                </View>
+            )}
+
+            {/* TARİHÇE SEKMESİ (GÜVENLİ) */}
+            {activeTab === 'History' && (
+                <View>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Son 7 Gün ({selectedCategory})</Text>
+                    <BarChart
+                        data={chartData}
+                        width={SCREEN_WIDTH - 40}
+                        height={220}
+                        yAxisLabel=""
+                        yAxisSuffix=" dk"
+                        chartConfig={chartConfig}
+                        style={{ borderRadius: 16, marginTop: 10, marginBottom: 20 }}
+                        showValuesOnTopOfBars={true}
+                        fromZero
+                    />
+
+                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 16, marginTop: 10 }]}>Son Seanslar</Text>
+
+                    <View style={[styles.historyListContainer, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
+                        <View style={[styles.historyHeader, { borderBottomColor: colors.border }]}>
+                            <Text style={[styles.historyHeaderText, { flex: 2, color: colors.text }]}>Zaman Aralığı</Text>
+                            <Text style={[styles.historyHeaderText, { flex: 1, color: colors.text, textAlign: 'center' }]}>Süre</Text>
+                            <Text style={[styles.historyHeaderText, { flex: 1, color: colors.text, textAlign: 'right' }]}>Mola</Text>
+                        </View>
+
+                        {/* GÜVENLİK ÖNLEMİ: allSessions boşsa veya undefined ise hata vermez */}
+                        {(allSessions || [])
+                            .filter(s => selectedCategory === 'Tümü' || s.category === selectedCategory)
+                            .sort((a, b) => new Date(b.date) - new Date(a.date))
+                            .slice(0, 10) 
+                            .map((item, index) => {
+                                const startDate = new Date(item.date);
+                                const startStr = startDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+                                const endDate = new Date(startDate.getTime() + item.duration * 1000);
+                                const endStr = endDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
+                                return (
+                                    <View key={index} style={[styles.historyItem, { borderBottomColor: colors.border }]}>
+                                        <View style={{ flex: 2 }}>
+                                            <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '700', marginBottom: 2 }}>{item.category}</Text>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                <Ionicons name="time-outline" size={14} color={colors.text} style={{ opacity: 0.5, marginRight: 4 }} />
+                                                <Text style={{ fontSize: 13, color: colors.text, fontWeight: '500' }}>{startStr} - {endStr}</Text>
+                                            </View>
+                                        </View>
+                                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                                            <View style={{ backgroundColor: theme === 'dark' ? '#333' : '#f3f4f6', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                                                <Text style={{ fontSize: 12, fontWeight: 'bold', color: colors.text }}>{Math.floor(item.duration / 60)} dk</Text>
+                                            </View>
+                                        </View>
+                                        <View style={{ flex: 1, alignItems: 'flex-end', justifyContent: 'center' }}>
+                                            {item.pauseCount > 0 ? (
+                                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                    <Text style={{ fontSize: 12, color: '#f59e0b', fontWeight: '600', marginRight: 2 }}>{item.pauseCount}</Text>
+                                                    <Ionicons name="pause-circle" size={16} color="#f59e0b" />
+                                                </View>
+                                            ) : (
+                                                <Ionicons name="checkmark-circle" size={18} color="#34d399" style={{ opacity: 0.8 }} />
+                                            )}
+                                        </View>
+                                    </View>
+                                );
+                            })}
+                        {(!allSessions || allSessions.length === 0) && (
+                            <Text style={{ padding: 20, textAlign: 'center', color: colors.text, opacity: 0.5 }}>Kayıt bulunamadı.</Text>
+                        )}
+                    </View>
+                </View>
+            )}
+
+        </View>
       </ScrollView>
     </View>
   );
@@ -414,58 +420,19 @@ export default function ReportScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  headerContainer: { padding: 20, paddingBottom: 5 },
-  headerTitle: { fontSize: 28, fontWeight: '800' },
-  tabsContainer: { paddingVertical: 10 },
+  headerContainer: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 15 },
+  headerTitle: { fontSize: 28, fontWeight: '800', textAlign: 'left' },
+  contentContainer: { paddingBottom: 40 },
   tabButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, marginRight: 10 },
   tabText: { marginLeft: 6, fontWeight: '600' },
-  filterContainer: { paddingBottom: 10, borderBottomWidth: 1 },
-  filterChip: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 15, borderWidth: 1, marginRight: 8 },
+  filterChip: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 15, borderWidth: 1, marginRight: 10 },
   filterText: { fontSize: 13, fontWeight: '500' },
-  contentContainer: { padding: 15 },
-  
-  // --- KART STİLLERİ ---
-  gridContainer: { 
-      flexDirection: 'row', 
-      flexWrap: 'wrap', 
-      justifyContent: 'space-between', 
-      gap: 12 
-  },
-  card: { 
-      borderRadius: 24, 
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      borderWidth: 1,
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.08,
-      shadowRadius: 16,
-      elevation: 4,
-  },
-  bigCard: {
-      width: '100%',
-      paddingVertical: 32,
-      marginBottom: 8,
-  },
-  bigCardValue: { 
-      fontSize: 42, 
-      fontWeight: '800', 
-      letterSpacing: 1,
-      marginVertical: 4
-  },
-  cardLabel: { 
-      fontSize: 13, 
-      fontWeight: '600',
-      textTransform: 'uppercase', 
-      letterSpacing: 0.5,
-      opacity: 0.7
-  },
-  todayBadge: {
-      paddingHorizontal: 14,
-      paddingVertical: 8,
-      borderRadius: 12,
-      marginTop: 8
-  },
-
+  gridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12 },
+  card: { borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 1, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 4 },
+  bigCard: { width: '100%', paddingVertical: 32, marginBottom: 8 },
+  bigCardValue: { fontSize: 42, fontWeight: '800', letterSpacing: 1, marginVertical: 4 },
+  cardLabel: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.7 },
+  todayBadge: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, marginTop: 8 },
   sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 15 },
   selectedDateCard: { padding: 15, borderRadius: 10, marginBottom: 10, alignItems: 'center', borderWidth: 1 },
   selectedDateTitle: { fontSize: 14, fontWeight: '600' },
@@ -476,30 +443,8 @@ const styles = StyleSheet.create({
   catDuration: { fontSize: 16, fontWeight: 'bold' },
   catPercent: { fontSize: 12, color: '#94a3b8' },
   noDataText: { textAlign: 'center', color: '#999', margin: 20 },
-
-  // --- YENİ GEÇMİŞ LİSTESİ STİLLERİ ---
-  historyListContainer: {
-    borderRadius: 16,
-    overflow: 'hidden', 
-    marginTop: 5,
-    marginBottom: 20,
-  },
-  historyHeader: {
-    flexDirection: 'row',
-    padding: 12,
-    borderBottomWidth: 1,
-    opacity: 0.8,
-  },
-  historyHeaderText: {
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    opacity: 0.6,
-  },
-  historyItem: {
-    flexDirection: 'row',
-    padding: 15,
-    borderBottomWidth: 1,
-    alignItems: 'center',
-  },
+  historyListContainer: { borderRadius: 16, overflow: 'hidden', marginTop: 5, marginBottom: 20 },
+  historyHeader: { flexDirection: 'row', padding: 12, borderBottomWidth: 1, opacity: 0.8 },
+  historyHeaderText: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', opacity: 0.6 },
+  historyItem: { flexDirection: 'row', padding: 15, borderBottomWidth: 1, alignItems: 'center' },
 });
